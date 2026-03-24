@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tower of Hanoi</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #16161a;
+    --panel: #1e1e24;
+    --border: #2e2e38;
+    --accent: #f0c040;
+    --accent2: #e05a2b;
+    --text: #e8e8ec;
+    --muted: #6b6b80;
+    --peg: #3a3a48;
+    --peg-highlight: #5a5a70;
+    --disk-colors: #e05a2b, #e07a20, #c8a020, #60b040, #2090d0, #7050d0, #c040a0;
+    --shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(240,192,64,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(240,192,64,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 36px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .logo {
+    font-size: 1.3rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .logo span { color: var(--text); }
+
+  .move-counter {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .move-counter strong {
+    color: var(--accent);
+    font-size: 1.1rem;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px 10px;
+    gap: 18px;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    justify-content: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 20px;
+    width: 100%;
+    max-width: 820px;
+  }
+
+  .control-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100px;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  .disk-count-display {
+    font-family: 'Space Mono', monospace;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent);
+    min-width: 20px;
+    text-align: center;
+  }
+
+  .divider {
+    width: 1px;
+    height: 28px;
+    background: var(--border);
+  }
+
+  button {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 8px 16px;
+    border-radius: 7px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+  }
+  button.primary:hover { background: #ffd050; border-color: #ffd050; }
+  button.danger {
+    border-color: var(--accent2);
+    color: var(--accent2);
+  }
+  button.danger:hover { background: var(--accent2); color: #fff; }
+  button.hill {
+    border-color: #50b8a0;
+    color: #50b8a0;
+  }
+  button.hill:hover { background: #50b8a0; color: #000; }
+  button.hill:disabled { opacity: 0.4; cursor: not-allowed; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* Speed control */
+  .speed-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* Canvas area */
+  .canvas-wrapper {
+    width: 100%;
+    max-width: 820px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  canvas {
+    display: block;
+    width: 100%;
+    cursor: default;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  /* Status bar */
+  .status-bar {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-align: center;
+    min-height: 1.4em;
+    letter-spacing: 0.02em;
+  }
+  .status-bar .highlight { color: var(--accent); }
+  .status-bar .win { color: #60e060; font-weight: 700; font-size: 0.9rem; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .legend span::before {
+    content: '●';
+    margin-right: 5px;
+  }
+  .legend .l-drag::before { color: var(--accent); }
+  .legend .l-random::before { color: var(--accent2); }
+  .legend .l-optimal::before { color: #60b040; }
+  .legend .l-hill::before { color: #50b8a0; }
+
+  /* Win overlay animation */
+  @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+  .win-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.75);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .win-overlay.show { display: flex; }
+  .win-box {
+    background: var(--panel);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    padding: 40px 52px;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+    box-shadow: 0 0 60px rgba(240,192,64,0.2);
+  }
+  .win-box h2 { font-size: 2rem; font-weight: 800; color: var(--accent); margin-bottom: 10px; }
+  .win-box p { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
+  .win-box .win-stats { font-family: 'Space Mono', monospace; font-size: 1.1rem; color: var(--text); margin: 16px 0; }
+  .win-box .win-stats strong { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Tower <span>of</span> Hanoi</div>
+  <div class="move-counter">Moves: <strong id="moveDisplay">0</strong> &nbsp;|&nbsp; Optimal: <strong id="optimalDisplay">—</strong></div>
+</header>
+
+<main>
+  <div class="controls">
+    <div class="control-group">
+      <label>Disks</label>
+      <input type="range" id="diskSlider" min="2" max="7" value="3">
+      <span class="disk-count-display" id="diskCountLabel">3</span>
+    </div>
+    <div class="divider"></div>
+    <button id="resetBtn" class="primary">Reset</button>
+    <div class="divider"></div>
+    <div class="control-group speed-group">
+      <label>Speed</label>
+      <input type="range" id="speedSlider" min="1" max="5" value="3">
+    </div>
+    <button id="solveBtn">▶ Solve Optimally</button>
+    <button id="randomBtn" class="danger">🎲 Solve Randomly</button>
+    <button id="hillBtn" class="hill">⛰ Hill Climb</button>
+    <button id="stopBtn" disabled>■ Stop</button>
+  </div>
+
+  <div class="canvas-wrapper">
+    <canvas id="hanoi" height="320"></canvas>
+  </div>
+
+  <div class="status-bar" id="statusBar">Click a peg to pick up its top disk, then click another peg to place it.</div>
+
+  <div class="legend">
+    <span class="l-drag">Drag to play</span>
+    <span class="l-random">Random solver</span>
+    <span class="l-optimal">Optimal solver</span>
+    <span class="l-hill">Hill climb</span>
+  </div>
+</main>
+
+<div class="win-overlay" id="winOverlay">
+  <div class="win-box">
+    <h2>🎉 Solved!</h2>
+    <p>You moved all the disks to the rightmost peg.</p>
+    <div class="win-stats">Moves taken: <strong id="winMoves">0</strong><br>Optimal: <strong id="winOptimal">0</strong></div>
+    <button class="primary" onclick="closeWin()" style="margin-top:10px;">Play Again</button>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+let numDisks = 3;
+let pegs = [[], [], []]; // pegs[0] = leftmost; disk value = size (1=smallest)
+let moves = 0;
+let selected = null;        // index of peg currently selected (null = none)
+let animQueue = [];         // [{from, to}]
+let animRunning = false;
+let animTimer = null;
+let dragState = null;       // {pegIndex, diskValue, mouseX, mouseY}
+
+const DISK_COLORS = [
+  '#e05a2b','#e07a20','#c8a020','#68b838','#2090d0','#7050d0','#c040a0'
+];
+
+const canvas = document.getElementById('hanoi');
+const ctx = canvas.getContext('2d');
+const diskSlider = document.getElementById('diskSlider');
+const diskCountLabel = document.getElementById('diskCountLabel');
+const speedSlider = document.getElementById('speedSlider');
+const moveDisplay = document.getElementById('moveDisplay');
+const optimalDisplay = document.getElementById('optimalDisplay');
+const statusBar = document.getElementById('statusBar');
+const solveBtn = document.getElementById('solveBtn');
+const randomBtn = document.getElementById('randomBtn');
+const hillBtn = document.getElementById('hillBtn');
+const stopBtn = document.getElementById('stopBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+// ─── Layout helpers ───────────────────────────────────────────────────────────
+function getLayout() {
+  const W = canvas.width;
+  const H = canvas.height;
+  const pegX = [W * 0.18, W * 0.5, W * 0.82];
+  const baseY = H - 48;
+  const pegH = H - 90;
+  const maxDiskW = W * 0.24;
+  const minDiskW = W * 0.06;
+  const diskH = Math.min(28, Math.floor((pegH - 20) / (numDisks + 1)));
+  return { W, H, pegX, baseY, pegH, maxDiskW, minDiskW, diskH };
+}
+
+function diskWidth(diskVal) {
+  const { maxDiskW, minDiskW } = getLayout();
+  return minDiskW + (diskVal - 1) * (maxDiskW - minDiskW) / Math.max(numDisks - 1, 1);
+}
+
+function diskY(pegIndex, stackIndex) {
+  const { baseY, diskH } = getLayout();
+  return baseY - diskH * stackIndex - diskH;
+}
+
+// ─── Draw ─────────────────────────────────────────────────────────────────────
+function draw(overrideDrag) {
+  const { W, H, pegX, baseY, pegH, diskH } = getLayout();
+  ctx.clearRect(0, 0, W, H);
+
+  // Ground
+  ctx.fillStyle = '#2a2a34';
+  ctx.beginPath();
+  ctx.roundRect(W * 0.04, baseY + 2, W * 0.92, 14, 7);
+  ctx.fill();
+
+  // Pegs
+  pegX.forEach((x, i) => {
+    const isSelected = selected === i;
+    ctx.fillStyle = isSelected ? '#7070a0' : '#3a3a50';
+    ctx.beginPath();
+    ctx.roundRect(x - 7, baseY - pegH + 10, 14, pegH, 6);
+    ctx.fill();
+    if (isSelected) {
+      ctx.shadowColor = 'rgba(180,180,255,0.5)';
+      ctx.shadowBlur = 16;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+
+    // Peg label
+    ctx.fillStyle = '#6b6b80';
+    ctx.font = `bold ${Math.max(11,W*0.014)}px Syne, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(['A','B','C'][i], x, baseY + 32);
+  });
+
+  // Disks
+  pegs.forEach((peg, pi) => {
+    peg.forEach((diskVal, si) => {
+      // If this disk is being dragged, skip it
+      if (dragState && dragState.pegIndex === pi && si === peg.length - 1) return;
+      drawDisk(diskVal, pegX[pi], diskY(pi, si), diskH, false);
+    });
+  });
+
+  // Dragged disk floating
+  const drag = overrideDrag || dragState;
+  if (drag) {
+    ctx.save();
+    ctx.globalAlpha = 0.88;
+    drawDisk(drag.diskValue, drag.mouseX, drag.mouseY - diskH / 2, diskH, true);
+    ctx.restore();
+  }
+}
+
+function drawDisk(diskVal, cx, y, diskH, lifted) {
+  const w = diskWidth(diskVal);
+  const r = diskH * 0.45;
+  const color = DISK_COLORS[(diskVal - 1) % DISK_COLORS.length];
+
+  if (lifted) {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 20;
+  }
+
+  // Main body
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.roundRect(cx - w / 2, y, w, diskH - 3, r);
+  ctx.fill();
+
+  // Highlight
+  const grad = ctx.createLinearGradient(cx - w/2, y, cx - w/2, y + diskH);
+  grad.addColorStop(0, 'rgba(255,255,255,0.18)');
+  grad.addColorStop(1, 'rgba(0,0,0,0.18)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.roundRect(cx - w / 2, y, w, diskH - 3, r);
+  ctx.fill();
+
+  // Number label
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = `bold ${Math.max(9, diskH * 0.55)}px Space Mono, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(diskVal, cx, y + (diskH - 3) / 2);
+  ctx.textBaseline = 'alphabetic';
+
+  if (lifted) ctx.shadowBlur = 0;
+}
+
+// ─── Resize ───────────────────────────────────────────────────────────────────
+function resizeCanvas() {
+  const wrapper = canvas.parentElement;
+  canvas.width = wrapper.clientWidth;
+  canvas.height = Math.max(260, Math.min(360, wrapper.clientWidth * 0.42));
+  draw();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function initGame() {
+  stopAnimation();
+  numDisks = parseInt(diskSlider.value);
+  pegs = [[], [], []];
+  for (let i = numDisks; i >= 1; i--) pegs[0].push(i);
+  moves = 0;
+  selected = null;
+  dragState = null;
+  moveDisplay.textContent = 0;
+  optimalDisplay.textContent = (Math.pow(2, numDisks) - 1);
+  setStatus('Click a peg (or drag a disk) to play. Disks must go small-on-large.');
+  draw();
+  updateButtons(false);
+}
+
+// ─── Player interaction ───────────────────────────────────────────────────────
+function pegIndexAt(clientX) {
+  const rect = canvas.getBoundingClientRect();
+  const x = (clientX - rect.left) * (canvas.width / rect.width);
+  const { pegX, W } = getLayout();
+  const zone = W * 0.24;
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(x - pegX[i]) < zone) return i;
+  }
+  return -1;
+}
+
+function topDiskAt(clientX, clientY) {
+  // Find peg and check if y is near the top disk
+  const rect = canvas.getBoundingClientRect();
+  const y = (clientY - rect.top) * (canvas.height / rect.height);
+  const { pegX, W, diskH, baseY } = getLayout();
+  const zone = W * 0.24;
+  const mx = (clientX - rect.left) * (canvas.width / rect.width);
+
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(mx - pegX[i]) < zone && pegs[i].length > 0) {
+      const si = pegs[i].length - 1;
+      const dy = diskY(i, si);
+      if (y >= dy - 4 && y <= dy + diskH + 4) return i;
+    }
+  }
+  return -1;
+}
+
+canvas.addEventListener('mousedown', e => {
+  if (animRunning) return;
+  const pi = topDiskAt(e.clientX, e.clientY);
+  if (pi >= 0 && pegs[pi].length > 0) {
+    const rect = canvas.getBoundingClientRect();
+    dragState = {
+      pegIndex: pi,
+      diskValue: pegs[pi][pegs[pi].length - 1],
+      mouseX: (e.clientX - rect.left) * (canvas.width / rect.width),
+      mouseY: (e.clientY - rect.top) * (canvas.height / rect.height),
+    };
+    selected = null;
+    canvas.style.cursor = 'grabbing';
+    draw();
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (!dragState) {
+    // Update cursor hint
+    const pi = topDiskAt(e.clientX, e.clientY);
+    canvas.style.cursor = (pi >= 0 && !animRunning) ? 'grab' : 'default';
+    return;
+  }
+  const rect = canvas.getBoundingClientRect();
+  dragState.mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+  dragState.mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+  draw();
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (!dragState) return;
+  const from = dragState.pegIndex;
+  dragState = null;
+  canvas.style.cursor = 'default';
+
+  const to = pegIndexAt(e.clientX);
+  if (to >= 0 && to !== from) {
+    tryMove(from, to);
+  } else {
+    draw();
+  }
+});
+
+canvas.addEventListener('mouseleave', () => {
+  if (dragState) { dragState = null; draw(); }
+});
+
+// Click fallback (for tapping peg posts)
+canvas.addEventListener('click', e => {
+  if (animRunning || dragState) return;
+  const pi = pegIndexAt(e.clientX);
+  if (pi < 0) return;
+
+  if (selected === null) {
+    if (pegs[pi].length === 0) { setStatus('That peg is empty — pick one with disks.'); return; }
+    selected = pi;
+    setStatus(`Peg ${['A','B','C'][pi]} selected. Click a destination peg.`);
+    draw();
+  } else {
+    const from = selected;
+    selected = null;
+    if (from !== pi) tryMove(from, pi);
+    else { draw(); setStatus('Click a different peg to move the disk.'); }
+  }
+});
+
+// Touch support
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const pi = topDiskAt(t.clientX, t.clientY);
+  if (pi >= 0 && pegs[pi].length > 0) {
+    const rect = canvas.getBoundingClientRect();
+    dragState = {
+      pegIndex: pi,
+      diskValue: pegs[pi][pegs[pi].length - 1],
+      mouseX: (t.clientX - rect.left) * (canvas.width / rect.width),
+      mouseY: (t.clientY - rect.top) * (canvas.height / rect.height),
+    };
+    draw();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (!dragState) return;
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches[0];
+  dragState.mouseX = (t.clientX - rect.left) * (canvas.width / rect.width);
+  dragState.mouseY = (t.clientY - rect.top) * (canvas.height / rect.height);
+  draw();
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  if (!dragState) return;
+  const from = dragState.pegIndex;
+  const t = e.changedTouches[0];
+  dragState = null;
+  const to = pegIndexAt(t.clientX);
+  if (to >= 0 && to !== from) tryMove(from, to);
+  else draw();
+});
+
+function tryMove(from, to) {
+  if (pegs[from].length === 0) { setStatus('No disk on that peg!'); draw(); return; }
+  const disk = pegs[from][pegs[from].length - 1];
+  if (pegs[to].length > 0 && pegs[to][pegs[to].length - 1] < disk) {
+    setStatus(`⚠ Can't place disk ${disk} on smaller disk ${pegs[to][pegs[to].length-1]}.`);
+    draw(); return;
+  }
+  pegs[to].push(pegs[from].pop());
+  moves++;
+  moveDisplay.textContent = moves;
+  draw();
+  checkWin();
+}
+
+function checkWin() {
+  if (pegs[2].length === numDisks) {
+    const optimal = Math.pow(2, numDisks) - 1;
+    document.getElementById('winMoves').textContent = moves;
+    document.getElementById('winOptimal').textContent = optimal;
+    document.getElementById('winOverlay').classList.add('show');
+  }
+}
+
+function closeWin() {
+  document.getElementById('winOverlay').classList.remove('show');
+  initGame();
+}
+
+// ─── Solvers ──────────────────────────────────────────────────────────────────
+function buildOptimalMoves(n, from, to, via, list) {
+  if (n === 0) return;
+  buildOptimalMoves(n - 1, from, via, to, list);
+  list.push({ from, to });
+  buildOptimalMoves(n - 1, via, to, from, list);
+}
+
+function solveOptimal() {
+  const list = [];
+  buildOptimalMoves(numDisks, 0, 2, 1, list);
+  runAnimation(list, 'optimal');
+}
+
+function solveRandom() {
+  // Enumerate a random walk solution, cap at 10000 moves
+  const snapshot = pegs.map(p => [...p]);
+  const list = [];
+  const tempPegs = pegs.map(p => [...p]);
+  let lastMove = null;
+  const maxMoves = 8000;
+
+  while (tempPegs[2].length !== numDisks && list.length < maxMoves) {
+    const legal = [];
+    for (let f = 0; f < 3; f++) {
+      if (tempPegs[f].length === 0) continue;
+      const top = tempPegs[f][tempPegs[f].length - 1];
+      for (let t = 0; t < 3; t++) {
+        if (t === f) continue;
+        if (lastMove && lastMove.from === t && lastMove.to === f) continue; // no immediate undo
+        if (tempPegs[t].length === 0 || tempPegs[t][tempPegs[t].length - 1] > top) {
+          legal.push({ from: f, to: t });
+        }
+      }
+    }
+    if (legal.length === 0) break;
+    const move = legal[Math.floor(Math.random() * legal.length)];
+    tempPegs[move.to].push(tempPegs[move.from].pop());
+    list.push(move);
+    lastMove = move;
+  }
+  runAnimation(list, 'random');
+}
+
+// ─── Hill-climb solver ────────────────────────────────────────────────────────
+// Heuristic (relaxed):
+//   For each disk, award points = pegIndex × diskSize.
+//   Moving any disk rightward (toward peg C) always increases the score.
+//   Moving leftward decreases it. Large disks matter more than small ones.
+//   A big bonus is added for each disk correctly locked into the base of peg C,
+//   so completing the final stack is strongly preferred.
+//   The climber gets stuck only when every legal move would move something left.
+function hillScore(tempPegs) {
+  let score = 0;
+  for (let p = 0; p < 3; p++) {
+    for (const diskVal of tempPegs[p]) {
+      score += p * diskVal;
+    }
+  }
+  // Bonus for correctly locked disks at base of peg C
+  const goal = tempPegs[2];
+  for (let i = 0; i < goal.length; i++) {
+    if (goal[i] === numDisks - i) score += numDisks * numDisks;
+    else break;
+  }
+  return score;
+}
+
+function solveHillClimb() {
+  const tempPegs = pegs.map(p => [...p]);
+  const list = [];
+  let stuckMsg = null;
+
+  while (tempPegs[2].length !== numDisks) {
+    const currentScore = hillScore(tempPegs);
+
+    // Enumerate all legal moves
+    const legal = [];
+    for (let f = 0; f < 3; f++) {
+      if (tempPegs[f].length === 0) continue;
+      const top = tempPegs[f][tempPegs[f].length - 1];
+      for (let t = 0; t < 3; t++) {
+        if (t === f) continue;
+        if (tempPegs[t].length === 0 || tempPegs[t][tempPegs[t].length - 1] > top) {
+          legal.push({ from: f, to: t });
+        }
+      }
+    }
+
+    if (legal.length === 0) { stuckMsg = 'No legal moves available.'; break; }
+
+    // Score each move
+    const scored = legal.map(mv => {
+      const clone = tempPegs.map(p => [...p]);
+      clone[mv.to].push(clone[mv.from].pop());
+      return { mv, score: hillScore(clone) };
+    });
+
+    const best = scored.reduce((a, b) => b.score > a.score ? b : a);
+
+    if (best.score <= currentScore) {
+      // Hill climber is stuck — no move improves score
+      stuckMsg = `⛰ I cannot move forward — every legal move takes a disk leftward, away from the goal. <span style="color:#50b8a0">Hill climb is stuck!</span>`;
+      break;
+    }
+
+    tempPegs[best.mv.to].push(tempPegs[best.mv.from].pop());
+    list.push(best.mv);
+  }
+
+  runAnimation(list, 'hill', stuckMsg);
+}
+
+
+let pendingStuckMsg = null;
+
+function getDelay() {
+  const s = parseInt(speedSlider.value);
+  return [600, 350, 180, 80, 20][s - 1];
+}
+
+function runAnimation(moves_list, type, stuckMsg) {
+  stopAnimation();
+  animQueue = [...moves_list];
+  animRunning = true;
+  pendingStuckMsg = stuckMsg || null;
+  updateButtons(true);
+  const color = type === 'optimal' ? '#60b040' : type === 'hill' ? '#50b8a0' : '#e05a2b';
+  const label = type === 'optimal' ? '▶ Optimal solver running…'
+              : type === 'hill'    ? '⛰ Hill climb running…'
+              :                      '🎲 Random solver running…';
+  const suffix = stuckMsg ? ` — <span style="color:#888">will halt when stuck</span>` : '';
+  setStatus(`<span style="color:${color}">${label}</span> ${animQueue.length} move${animQueue.length!==1?'s':''} queued${suffix}.`);
+  stepAnimation();
+}
+
+function stepAnimation() {
+  if (!animRunning || animQueue.length === 0) {
+    animRunning = false;
+    updateButtons(false);
+    if (pegs[2].length === numDisks) {
+      checkWin();
+    } else if (pendingStuckMsg) {
+      setStatus(pendingStuckMsg);
+      pendingStuckMsg = null;
+    } else {
+      setStatus('Solver finished.');
+    }
+    return;
+  }
+  const { from, to } = animQueue.shift();
+  if (pegs[from].length > 0) {
+    pegs[to].push(pegs[from].pop());
+    moves++;
+    moveDisplay.textContent = moves;
+  }
+  draw();
+  if (pegs[2].length === numDisks) {
+    animRunning = false;
+    updateButtons(false);
+    animQueue = [];
+    checkWin();
+    return;
+  }
+  animTimer = setTimeout(stepAnimation, getDelay());
+}
+
+function stopAnimation() {
+  if (animTimer) clearTimeout(animTimer);
+  animTimer = null;
+  animRunning = false;
+  animQueue = [];
+  updateButtons(false);
+}
+
+function updateButtons(running) {
+  solveBtn.disabled = running;
+  randomBtn.disabled = running;
+  hillBtn.disabled = running;
+  stopBtn.disabled = !running;
+  diskSlider.disabled = running;
+  resetBtn.disabled = running;
+}
+
+// ─── UI helpers ───────────────────────────────────────────────────────────────
+function setStatus(html) {
+  statusBar.innerHTML = html;
+}
+
+diskSlider.addEventListener('input', () => {
+  diskCountLabel.textContent = diskSlider.value;
+  initGame();
+});
+
+resetBtn.addEventListener('click', initGame);
+solveBtn.addEventListener('click', solveOptimal);
+randomBtn.addEventListener('click', solveRandom);
+hillBtn.addEventListener('click', solveHillClimb);
+stopBtn.addEventListener('click', () => { stopAnimation(); setStatus('Solver stopped.'); draw(); });
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+resizeCanvas();
+initGame();
+</script>
+</body>
+</html>
