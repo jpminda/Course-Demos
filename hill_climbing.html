@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hill Climbing — Local Maxima</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+:root {
+  --bg: #0d0d0f;
+  --surface: #16161a;
+  --panel: #1e1e24;
+  --border: #2e2e38;
+  --accent: #f0c040;    /* gold — hill climb */
+  --accent2: #e05a2b;   /* orange — random walk */
+  --accent3: #60b040;   /* green — global peak */
+  --accent4: #a060e0;   /* purple — combined */
+  --text: #e8e8ec;
+  --muted: #6b6b80;
+  --shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(240,192,64,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(240,192,64,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 36px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.logo {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.logo span { color: var(--text); }
+
+.iteration-counter {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.iteration-counter strong { color: var(--accent); font-size: 1.1rem; }
+
+main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 20px 10px;
+  gap: 16px;
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 18px;
+  width: 100%;
+  max-width: 900px;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+input[type=range] {
+  -webkit-appearance: none;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  width: 90px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px; height: 15px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.val-display {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent);
+  min-width: 22px;
+  text-align: center;
+}
+
+.divider {
+  width: 1px; height: 28px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+button {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #000; }
+button.primary:hover { background: #ffd050; border-color: #ffd050; }
+button.hc-btn { border-color: var(--accent); color: var(--accent); }
+button.hc-btn:hover { background: var(--accent); color: #000; }
+button.rw-btn { border-color: var(--accent2); color: var(--accent2); }
+button.rw-btn:hover { background: var(--accent2); color: #fff; }
+button.cm-btn { border-color: var(--accent4); color: var(--accent4); }
+button.cm-btn:hover { background: var(--accent4); color: #fff; }
+button:disabled { opacity: 0.38; cursor: not-allowed; }
+
+/* Scene */
+.scene-wrapper {
+  width: 100%;
+  max-width: 900px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Status */
+.status-bar {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  min-height: 1.4em;
+  letter-spacing: 0.02em;
+  padding: 0 10px;
+}
+
+/* Info panels */
+.info-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 900px;
+  flex-wrap: wrap;
+}
+
+.info-panel {
+  flex: 1;
+  min-width: 200px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-family: 'Space Mono', monospace;
+  font-size: 0.75rem;
+}
+.info-panel .panel-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+}
+.info-panel.hc .panel-title { color: var(--accent); }
+.info-panel.rw .panel-title { color: var(--accent2); }
+.info-panel.cm .panel-title { color: var(--accent4); }
+.info-panel .stat-line { color: var(--muted); margin-bottom: 3px; }
+.info-panel .stat-line strong { color: var(--text); }
+.info-panel .stuck-badge {
+  display: inline-block;
+  background: rgba(224,90,43,0.18);
+  border: 1px solid var(--accent2);
+  color: var(--accent2);
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+.info-panel .found-badge {
+  display: inline-block;
+  background: rgba(96,176,64,0.18);
+  border: 1px solid var(--accent3);
+  color: var(--accent3);
+  border-radius: 5px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-top: 4px;
+}
+
+/* Legend */
+.legend {
+  display: flex;
+  gap: 20px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.legend span::before { content: '●'; margin-right: 5px; }
+.legend .l-hc::before { color: var(--accent); }
+.legend .l-rw::before { color: var(--accent2); }
+.legend .l-cm::before { color: var(--accent4); }
+.legend .l-peak::before { color: var(--accent3); }
+
+@keyframes fadeIn { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Hill Climbing <span>— Local Maxima</span></div>
+  <div class="iteration-counter">Step: <strong id="stepDisplay">0</strong></div>
+</header>
+
+<main>
+  <div class="controls">
+    <div class="control-group">
+      <label>Subpeaks</label>
+      <input type="range" id="subpeakSlider" min="0" max="8" value="3">
+      <span class="val-display" id="subpeakVal">3</span>
+    </div>
+    <div class="control-group">
+      <label>Ruggedness</label>
+      <input type="range" id="rugSlider" min="0" max="10" value="5">
+      <span class="val-display" id="rugVal">5</span>
+    </div>
+    <div class="divider"></div>
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speedSlider" min="1" max="5" value="3">
+    </div>
+    <button id="regenBtn" class="primary">⟳ New Landscape</button>
+    <div class="divider"></div>
+    <button id="hcBtn" class="hc-btn">⛰ Hill Climb</button>
+    <button id="rwBtn" class="rw-btn">🎲 Random Walk</button>
+    <button id="cmBtn" class="cm-btn">🔀 Combined</button>
+    <button id="bothBtn">▶ Run All</button>
+    <button id="stopBtn" disabled>■ Stop</button>
+  </div>
+
+  <div class="scene-wrapper">
+    <canvas id="hillCanvas" height="340"></canvas>
+  </div>
+
+  <div class="status-bar" id="statusBar">Generate a landscape, then run Hill Climb or Random Walk to compare search strategies.</div>
+
+  <div class="info-row">
+    <div class="info-panel hc" id="hcPanel">
+      <div class="panel-title">⛰ Hill Climb</div>
+      <div class="stat-line">Position: <strong id="hcPos">—</strong></div>
+      <div class="stat-line">Height: <strong id="hcHeight">—</strong></div>
+      <div class="stat-line">Steps: <strong id="hcSteps">—</strong></div>
+      <div id="hcBadge"></div>
+    </div>
+    <div class="info-panel rw" id="rwPanel">
+      <div class="panel-title">🎲 Random Walk</div>
+      <div class="stat-line">Position: <strong id="rwPos">—</strong></div>
+      <div class="stat-line">Height: <strong id="rwHeight">—</strong></div>
+      <div class="stat-line">Steps: <strong id="rwSteps">—</strong></div>
+      <div id="rwBadge"></div>
+    </div>
+    <div class="info-panel cm" id="cmPanel">
+      <div class="panel-title">🔀 Combined</div>
+      <div class="stat-line">Position: <strong id="cmPos">—</strong></div>
+      <div class="stat-line">Height: <strong id="cmHeight">—</strong></div>
+      <div class="stat-line">Steps: <strong id="cmSteps">—</strong></div>
+      <div class="stat-line">Mode: <strong id="cmMode">—</strong></div>
+      <div id="cmBadge"></div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="l-hc">Hill climb</span>
+    <span class="l-rw">Random walk</span>
+    <span class="l-cm">Combined</span>
+    <span class="l-peak">Global peak</span>
+  </div>
+</main>
+
+<script>
+// ─── Constants ────────────────────────────────────────────────────────────────
+const SAMPLE_W = 800;   // landscape resolution (x samples)
+const STEP_SIZE = 4;    // how many samples per move
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let terrain = [];       // array of y-heights, length SAMPLE_W
+let globalPeakX = 0;
+let globalPeakH = 0;
+
+// Climber state for each mode
+let hcState = null;   // { x, history: [{x,h}], stuck, done }
+let rwState = null;   // { x, history: [{x,h}], bestX, bestH, done }
+let cmState = null;   // { x, history: [{x,h,phase}], phase:'hc'|'rw', rwStepsLeft, escapes, done }
+
+let animRunning = false;
+let animTimer   = null;
+let stepCount   = 0;
+
+const canvas      = document.getElementById('hillCanvas');
+const ctx         = canvas.getContext('2d');
+const stepDisplay = document.getElementById('stepDisplay');
+const statusBar   = document.getElementById('statusBar');
+const subpeakSlider = document.getElementById('subpeakSlider');
+const rugSlider     = document.getElementById('rugSlider');
+const speedSlider   = document.getElementById('speedSlider');
+const regenBtn = document.getElementById('regenBtn');
+const hcBtn    = document.getElementById('hcBtn');
+const rwBtn    = document.getElementById('rwBtn');
+const cmBtn    = document.getElementById('cmBtn');
+const bothBtn  = document.getElementById('bothBtn');
+const stopBtn  = document.getElementById('stopBtn');
+
+// ─── Terrain generation ───────────────────────────────────────────────────────
+function generateTerrain() {
+  const numSubpeaks = parseInt(subpeakSlider.value);
+  const ruggedness  = parseInt(rugSlider.value);
+
+  // Build as sum of sine waves
+  const h = new Array(SAMPLE_W).fill(0);
+
+  // Global peak — always placed in the right 40% of landscape, tall
+  const globalPeakPos = Math.floor(SAMPLE_W * (0.55 + Math.random() * 0.3));
+  const globalAmp = 0.75 + Math.random() * 0.2;
+  const globalWidth = SAMPLE_W * (0.15 + Math.random() * 0.1);
+  for (let x = 0; x < SAMPLE_W; x++) {
+    const d = (x - globalPeakPos) / globalWidth;
+    h[x] += globalAmp * Math.exp(-d * d * 2);
+  }
+
+  // Subpeaks — scattered in left 70%, shorter
+  const subpeak_positions = [];
+  for (let s = 0; s < numSubpeaks; s++) {
+    const sp = Math.floor(SAMPLE_W * (0.05 + Math.random() * 0.65));
+    subpeak_positions.push(sp);
+    const amp   = 0.3 + Math.random() * 0.45;
+    const width = SAMPLE_W * (0.06 + Math.random() * 0.1);
+    for (let x = 0; x < SAMPLE_W; x++) {
+      const d = (x - sp) / width;
+      h[x] += amp * Math.exp(-d * d * 2);
+    }
+  }
+
+  // Ruggedness noise
+  const noiseAmp = ruggedness * 0.018;
+  for (let x = 0; x < SAMPLE_W; x++) {
+    // multi-octave noise
+    h[x] += noiseAmp * (Math.sin(x * 0.08) * 0.5 + Math.sin(x * 0.19 + 1.3) * 0.3 + Math.sin(x * 0.41 + 2.7) * 0.2);
+  }
+
+  // Gentle base slope (rises left to right slightly)
+  for (let x = 0; x < SAMPLE_W; x++) {
+    h[x] += 0.05 * (x / SAMPLE_W);
+  }
+
+  // Ground floor — clamp minimum
+  for (let x = 0; x < SAMPLE_W; x++) {
+    h[x] = Math.max(0.02, h[x]);
+  }
+
+  // Normalise to 0..1
+  const minH = Math.min(...h);
+  const maxH = Math.max(...h);
+  for (let x = 0; x < SAMPLE_W; x++) {
+    h[x] = (h[x] - minH) / (maxH - minH);
+  }
+
+  terrain = h;
+
+  // Find true global peak
+  globalPeakH = 0;
+  for (let x = 0; x < SAMPLE_W; x++) {
+    if (terrain[x] > globalPeakH) { globalPeakH = terrain[x]; globalPeakX = x; }
+  }
+}
+
+function terrainAt(x) {
+  const xi = Math.max(0, Math.min(SAMPLE_W - 1, Math.round(x)));
+  return terrain[xi] || 0;
+}
+
+// ─── Layout helpers ───────────────────────────────────────────────────────────
+function getLayout() {
+  const W = canvas.width, H = canvas.height;
+  const padL = 30, padR = 30, padTop = 30, padBot = 60;
+  const drawW = W - padL - padR;
+  const drawH = H - padTop - padBot;
+  return { W, H, padL, padR, padTop, padBot, drawW, drawH };
+}
+
+function terrainToCanvas(tx, th) {
+  const { padL, padTop, drawW, drawH } = getLayout();
+  const cx = padL + (tx / (SAMPLE_W - 1)) * drawW;
+  const cy = padTop + drawH - th * drawH;
+  return { cx, cy };
+}
+
+// ─── Draw ─────────────────────────────────────────────────────────────────────
+function draw() {
+  if (!terrain.length) return;
+  const { W, H, padL, padR, padTop, padBot, drawW, drawH } = getLayout();
+  ctx.clearRect(0, 0, W, H);
+
+  // Sky gradient
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, '#0a0a14');
+  skyGrad.addColorStop(1, '#14141e');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  // deterministic from terrain seed
+  for (let i = 0; i < 60; i++) {
+    const sx = ((terrain[i * 13] || 0.5) * W * 3.7) % W;
+    const sy = ((terrain[i * 7 + 3] || 0.5) * H * 2.1) % (H * 0.5);
+    const sr = 0.5 + ((terrain[i * 5] || 0.5)) * 1.2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Draw terrain fill
+  ctx.beginPath();
+  ctx.moveTo(padL, padTop + drawH);
+  for (let tx = 0; tx < SAMPLE_W; tx++) {
+    const { cx, cy } = terrainToCanvas(tx, terrain[tx]);
+    if (tx === 0) ctx.moveTo(cx, cy);
+    else ctx.lineTo(cx, cy);
+  }
+  const lastPt = terrainToCanvas(SAMPLE_W - 1, terrain[SAMPLE_W - 1]);
+  ctx.lineTo(lastPt.cx, padTop + drawH);
+  ctx.lineTo(padL, padTop + drawH);
+  ctx.closePath();
+
+  // Rock fill gradient
+  const rockGrad = ctx.createLinearGradient(0, padTop, 0, padTop + drawH);
+  rockGrad.addColorStop(0, '#3a3a50');
+  rockGrad.addColorStop(0.5, '#28283a');
+  rockGrad.addColorStop(1, '#181824');
+  ctx.fillStyle = rockGrad;
+  ctx.fill();
+
+  // Snow caps on high peaks
+  ctx.save();
+  ctx.beginPath();
+  for (let tx = 0; tx < SAMPLE_W; tx++) {
+    if (terrain[tx] > 0.8) {
+      const { cx, cy } = terrainToCanvas(tx, terrain[tx]);
+      const snowH = (terrain[tx] - 0.8) / 0.2;
+      if (tx === 0 || terrain[tx - 1] <= 0.8) ctx.moveTo(cx, cy);
+      else ctx.lineTo(cx, cy);
+    }
+  }
+  ctx.strokeStyle = 'rgba(220,230,255,0.5)';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.restore();
+
+  // Terrain outline
+  ctx.beginPath();
+  for (let tx = 0; tx < SAMPLE_W; tx++) {
+    const { cx, cy } = terrainToCanvas(tx, terrain[tx]);
+    if (tx === 0) ctx.moveTo(cx, cy);
+    else ctx.lineTo(cx, cy);
+  }
+  ctx.strokeStyle = '#5a5a7a';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Global peak marker
+  const { cx: gpx, cy: gpy } = terrainToCanvas(globalPeakX, globalPeakH);
+  // Flag pole
+  ctx.strokeStyle = 'rgba(96,176,64,0.8)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(gpx, gpy - 2);
+  ctx.lineTo(gpx, gpy - 22);
+  ctx.stroke();
+  // Flag
+  ctx.fillStyle = 'rgba(96,176,64,0.9)';
+  ctx.beginPath();
+  ctx.moveTo(gpx, gpy - 22);
+  ctx.lineTo(gpx + 12, gpy - 17);
+  ctx.lineTo(gpx, gpy - 12);
+  ctx.closePath();
+  ctx.fill();
+  // Peak label
+  ctx.fillStyle = 'rgba(96,176,64,0.7)';
+  ctx.font = 'bold 9px Space Mono, monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('PEAK', gpx, gpy - 26);
+
+  // Ground line
+  ctx.fillStyle = '#222230';
+  ctx.fillRect(padL, padTop + drawH, drawW, padBot);
+
+  // Axis line
+  ctx.strokeStyle = '#3a3a50';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padL, padTop + drawH + 0.5);
+  ctx.lineTo(padL + drawW, padTop + drawH + 0.5);
+  ctx.stroke();
+
+  // Draw trails
+  if (rwState && rwState.history.length > 1) drawTrail(rwState.history, '#e05a2b', 0.35);
+  if (hcState && hcState.history.length > 1) drawTrail(hcState.history, '#f0c040', 0.35);
+  if (cmState && cmState.history.length > 1) drawCombinedTrail(cmState.history);
+
+  // Draw climbers
+  if (rwState) drawClimber(rwState.x, terrainAt(rwState.x), '#e05a2b', rwState.done && rwState.bestH >= globalPeakH * 0.999);
+  if (hcState) drawClimber(hcState.x, terrainAt(hcState.x), '#f0c040', hcState.done && !hcState.stuck);
+  if (cmState) drawClimber(cmState.x, terrainAt(cmState.x), '#a060e0', cmState.done && terrainAt(cmState.x) >= globalPeakH * 0.999, cmState.phase === 'rw');
+
+  // Stuck indicator
+  if (hcState?.stuck) {
+    const { cx, cy } = terrainToCanvas(hcState.x, terrainAt(hcState.x));
+    ctx.save();
+    ctx.font = 'bold 11px Syne, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#e05a2b';
+    ctx.shadowColor = '#e05a2b';
+    ctx.shadowBlur = 8;
+    ctx.fillText('⚠ STUCK', cx, cy - 48);
+    ctx.restore();
+  }
+
+  // Height axis ticks
+  ctx.font = '9px Space Mono, monospace';
+  ctx.fillStyle = '#4a4a60';
+  ctx.textAlign = 'right';
+  for (let t = 0; t <= 4; t++) {
+    const th = t / 4;
+    const { cy } = terrainToCanvas(0, th);
+    ctx.fillText((th * 100).toFixed(0) + '%', padL - 4, cy + 3);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padL, cy);
+    ctx.lineTo(padL + drawW, cy);
+    ctx.stroke();
+  }
+}
+
+function drawTrail(history, color, alpha) {
+  if (history.length < 2) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  history.forEach(({ x, h }, i) => {
+    const { cx, cy } = terrainToCanvas(x, h);
+    if (i === 0) ctx.moveTo(cx, cy);
+    else ctx.lineTo(cx, cy);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  // Dots at each visited point
+  ctx.save();
+  ctx.fillStyle = color;
+  history.forEach(({ x, h }, i) => {
+    if (i === 0) return;
+    const { cx, cy } = terrainToCanvas(x, h);
+    ctx.globalAlpha = 0.25 + 0.6 * (i / history.length);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawCombinedTrail(history) {
+  if (history.length < 2) return;
+  // Draw segment by segment, colouring by phase
+  for (let i = 1; i < history.length; i++) {
+    const prev = history[i - 1];
+    const curr = history[i];
+    const color = curr.phase === 'rw' ? '#c880ff' : '#a060e0';
+    const alpha = curr.phase === 'rw' ? 0.28 : 0.38;
+    const { cx: x1, cy: y1 } = terrainToCanvas(prev.x, prev.h);
+    const { cx: x2, cy: y2 } = terrainToCanvas(curr.x, curr.h);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    if (curr.phase === 'rw') ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+  // Dots
+  ctx.save();
+  history.forEach(({ x, h, phase }, i) => {
+    if (i === 0) return;
+    const { cx, cy } = terrainToCanvas(x, h);
+    ctx.globalAlpha = 0.3 + 0.5 * (i / history.length);
+    ctx.fillStyle = phase === 'rw' ? '#c880ff' : '#a060e0';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.restore();
+}
+
+function drawClimber(tx, th, color, atPeak, escaping) {
+  const { cx, cy } = terrainToCanvas(tx, th);
+  ctx.save();
+
+  // Glow
+  if (atPeak) {
+    ctx.shadowColor = '#60b040';
+    ctx.shadowBlur = 20;
+  } else {
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 10;
+  }
+
+  // Legs
+  ctx.strokeStyle = atPeak ? '#60b040' : color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - 5, cy);
+  ctx.lineTo(cx - 3, cy - 8);
+  ctx.moveTo(cx + 5, cy);
+  ctx.lineTo(cx + 3, cy - 8);
+  ctx.stroke();
+
+  // Body
+  ctx.fillStyle = atPeak ? '#60b040' : color;
+  ctx.beginPath();
+  ctx.roundRect(cx - 6, cy - 18, 12, 10, 3);
+  ctx.fill();
+
+  // Helmet/head
+  ctx.beginPath();
+  ctx.arc(cx, cy - 22, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Visor
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.beginPath();
+  ctx.arc(cx + 1, cy - 22, 3.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Escaping label
+  if (escaping) {
+    ctx.shadowColor = '#c880ff';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = '#c880ff';
+    ctx.font = 'bold 10px Syne, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('↯ ESCAPE', cx, cy - 34);
+    ctx.shadowBlur = 0;
+  }
+
+  // Flag on peak
+  if (atPeak) {
+    ctx.strokeStyle = '#60b040';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx + 5, cy - 28);
+    ctx.lineTo(cx + 5, cy - 40);
+    ctx.stroke();
+    ctx.fillStyle = '#60b040';
+    ctx.beginPath();
+    ctx.moveTo(cx + 5, cy - 40);
+    ctx.lineTo(cx + 13, cy - 36);
+    ctx.lineTo(cx + 5, cy - 32);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// ─── Resize ───────────────────────────────────────────────────────────────────
+function resizeCanvas() {
+  const wrapper = canvas.parentElement;
+  canvas.width  = wrapper.clientWidth;
+  canvas.height = Math.max(280, Math.min(380, wrapper.clientWidth * 0.42));
+  draw();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function init() {
+  stopAnim();
+  generateTerrain();
+  hcState = null;
+  rwState = null;
+  cmState = null;
+  stepCount = 0;
+  stepDisplay.textContent = 0;
+  resetPanels();
+  const numSub = parseInt(subpeakSlider.value);
+  setStatus(numSub === 0
+    ? 'Single-peak landscape — hill climbing <strong style="color:var(--accent3)">will always find the global peak</strong> regardless of start position.'
+    : 'Landscape generated. Place a climber: <strong style="color:var(--accent)">Hill Climb</strong> always steps upward, <strong style="color:var(--accent2)">Random Walk</strong> steps randomly.');
+  draw();
+  updateButtons(false);
+}
+
+function resetPanels() {
+  ['hcPos','hcHeight','hcSteps','rwPos','rwHeight','rwSteps','cmPos','cmHeight','cmSteps','cmMode'].forEach(id => {
+    document.getElementById(id).textContent = '—';
+  });
+  document.getElementById('hcBadge').innerHTML = '';
+  document.getElementById('rwBadge').innerHTML = '';
+  document.getElementById('cmBadge').innerHTML = '';
+}
+
+// ─── Climber placement — random start in left 40% ────────────────────────────
+function randomStart() {
+  return Math.floor(Math.random() * SAMPLE_W * 0.4);
+}
+
+// ─── Hill climb logic ─────────────────────────────────────────────────────────
+// At each step: look left and right by STEP_SIZE; move to whichever is higher.
+// If neither is higher, stuck.
+function hcStep() {
+  if (!hcState || hcState.done) return false;
+  const x = hcState.x;
+  const h = terrainAt(x);
+  const lx = Math.max(0, x - STEP_SIZE);
+  const rx = Math.min(SAMPLE_W - 1, x + STEP_SIZE);
+  const lh = terrainAt(lx);
+  const rh = terrainAt(rx);
+
+  if (lh < h && rh < h) {
+    // Stuck at local max
+    hcState.stuck = true;
+    hcState.done  = true;
+    return false;
+  }
+  const nextX = rh >= lh ? rx : lx;
+  hcState.x = nextX;
+  hcState.history.push({ x: nextX, h: terrainAt(nextX) });
+  return true;
+}
+
+// ─── Random walk logic ────────────────────────────────────────────────────────
+// At each step: randomly step left or right by STEP_SIZE (within bounds).
+// Track best position seen. Stop when reaching global peak or after maxSteps.
+const RW_MAX_STEPS = 600;
+
+function rwStep() {
+  if (!rwState || rwState.done) return false;
+  const x = rwState.x;
+  const dir = Math.random() < 0.5 ? -1 : 1;
+  const nx = Math.max(0, Math.min(SAMPLE_W - 1, x + dir * STEP_SIZE));
+  rwState.x = nx;
+  const nh = terrainAt(nx);
+  rwState.history.push({ x: nx, h: nh });
+  if (nh > rwState.bestH) { rwState.bestH = nh; rwState.bestX = nx; }
+  if (nh >= globalPeakH * 0.999 || rwState.history.length > RW_MAX_STEPS) {
+    rwState.done = true;
+  }
+  return true;
+}
+
+// ─── Combined logic ───────────────────────────────────────────────────────────
+// Hill-climbs normally. When stuck, switches to random walk for RW_ESCAPE_STEPS
+// steps to escape the local max, then resumes hill-climbing. Repeats until the
+// global peak is found or CM_MAX_STEPS total steps are taken.
+const RW_ESCAPE_STEPS = 20;
+const CM_MAX_STEPS    = 800;
+
+function cmStep() {
+  if (!cmState || cmState.done) return false;
+
+  if (cmState.phase === 'hc') {
+    const x  = cmState.x;
+    const h  = terrainAt(x);
+    const lx = Math.max(0, x - STEP_SIZE);
+    const rx = Math.min(SAMPLE_W - 1, x + STEP_SIZE);
+    const lh = terrainAt(lx);
+    const rh = terrainAt(rx);
+
+    if (lh < h && rh < h) {
+      // Stuck — switch to random walk escape
+      cmState.phase       = 'rw';
+      cmState.rwStepsLeft = RW_ESCAPE_STEPS;
+      cmState.escapes++;
+      return true; // consume a step to show the switch
+    }
+    const nextX = rh >= lh ? rx : lx;
+    cmState.x = nextX;
+    cmState.history.push({ x: nextX, h: terrainAt(nextX), phase: 'hc' });
+  } else {
+    // Random walk escape phase
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    const nx  = Math.max(0, Math.min(SAMPLE_W - 1, cmState.x + dir * STEP_SIZE));
+    cmState.x = nx;
+    cmState.history.push({ x: nx, h: terrainAt(nx), phase: 'rw' });
+    cmState.rwStepsLeft--;
+    if (cmState.rwStepsLeft <= 0) cmState.phase = 'hc'; // resume climbing
+  }
+
+  // Check termination
+  const h = terrainAt(cmState.x);
+  if (h >= globalPeakH * 0.999 || cmState.history.length > CM_MAX_STEPS) {
+    cmState.done = true;
+  }
+  return true;
+}
+function getDelay() {
+  return [200, 100, 50, 20, 5][parseInt(speedSlider.value) - 1];
+}
+
+function startHC() {
+  stopAnim();
+  hcState = { x: randomStart(), history: [], stuck: false, done: false };
+  hcState.history.push({ x: hcState.x, h: terrainAt(hcState.x) });
+  rwState = null;
+  stepCount = 0;
+  document.getElementById('rwBadge').innerHTML = '';
+  setStatus('<span style="color:var(--accent)">⛰ Hill climber running…</span> Always moves uphill.');
+  updateButtons(true);
+  animRunning = true;
+  animStep('hc');
+}
+
+function startRW() {
+  stopAnim();
+  rwState = { x: randomStart(), history: [], bestX: 0, bestH: 0, done: false };
+  rwState.history.push({ x: rwState.x, h: terrainAt(rwState.x) });
+  rwState.bestX = rwState.x; rwState.bestH = terrainAt(rwState.x);
+  hcState = null;
+  stepCount = 0;
+  document.getElementById('hcBadge').innerHTML = '';
+  setStatus('<span style="color:var(--accent2)">🎲 Random walker running…</span> Steps randomly, tracks best.');
+  updateButtons(true);
+  animRunning = true;
+  animStep('rw');
+}
+
+function startBoth() {
+  stopAnim();
+  const startX = randomStart();
+  const startH = terrainAt(startX);
+  hcState = { x: startX, history: [{ x: startX, h: startH }], stuck: false, done: false };
+  rwState = { x: startX, history: [{ x: startX, h: startH }], bestX: startX, bestH: startH, done: false };
+  cmState = { x: startX, history: [{ x: startX, h: startH, phase: 'hc' }],
+               phase: 'hc', rwStepsLeft: 0, escapes: 0, done: false };
+  stepCount = 0;
+  setStatus('<span style="color:var(--accent)">⛰ Hill climb</span> vs <span style="color:var(--accent2)">🎲 Random walk</span> vs <span style="color:var(--accent4)">🔀 Combined</span> — all starting from the same position.');
+  updateButtons(true);
+  animRunning = true;
+  animStep('both');
+}
+
+function startCM() {
+  stopAnim();
+  const startX = randomStart();
+  cmState = { x: startX, history: [{ x: startX, h: terrainAt(startX), phase: 'hc' }],
+               phase: 'hc', rwStepsLeft: 0, escapes: 0, done: false };
+  hcState = null; rwState = null;
+  stepCount = 0;
+  document.getElementById('hcBadge').innerHTML = '';
+  document.getElementById('rwBadge').innerHTML = '';
+  setStatus('<span style="color:var(--accent4)">🔀 Combined running…</span> Hill-climbs until stuck, then random-walks to escape.');
+  updateButtons(true);
+  animRunning = true;
+  animStep('cm');
+}
+function animStep(mode) {
+  if (!animRunning) return;
+
+  if (mode === 'hc'   || mode === 'both') hcStep();
+  if (mode === 'rw'   || mode === 'both') rwStep();
+  if (mode === 'cm'   || mode === 'both') cmStep();
+
+  stepCount++;
+  stepDisplay.textContent = stepCount;
+  updatePanels();
+  draw();
+
+  const hcDone = !hcState || hcState.done;
+  const rwDone = !rwState || rwState.done;
+  const cmDone = !cmState || cmState.done;
+
+  if ((mode === 'both' && hcDone && rwDone && cmDone) ||
+      (mode === 'hc'   && hcDone) ||
+      (mode === 'rw'   && rwDone) ||
+      (mode === 'cm'   && cmDone)) {
+    animRunning = false;
+    updateButtons(false);
+    onFinished(mode);
+    return;
+  }
+
+  animTimer = setTimeout(() => animStep(mode), getDelay());
+}
+
+function onFinished(mode) {
+  const parts = [];
+  if (hcState) {
+    const h = terrainAt(hcState.x);
+    const isGlobal = h >= globalPeakH * 0.999;
+    if (hcState.stuck) {
+      document.getElementById('hcBadge').innerHTML = '<span class="stuck-badge">⚠ LOCAL MAX</span>';
+      parts.push(`<span style="color:var(--accent)">Hill climb stuck at local max</span> (height ${(h*100).toFixed(1)}%)`);
+    } else if (isGlobal) {
+      document.getElementById('hcBadge').innerHTML = '<span class="found-badge">✓ GLOBAL PEAK</span>';
+      parts.push(`<span style="color:var(--accent3)">Hill climb found the global peak!</span>`);
+    }
+  }
+  if (rwState) {
+    const isGlobal = rwState.bestH >= globalPeakH * 0.999;
+    if (isGlobal) {
+      document.getElementById('rwBadge').innerHTML = '<span class="found-badge">✓ GLOBAL PEAK</span>';
+      parts.push(`<span style="color:var(--accent2)">Random walk found the global peak</span> in ${rwState.history.length} steps`);
+    } else {
+      document.getElementById('rwBadge').innerHTML = '<span class="stuck-badge">✗ TIMED OUT</span>';
+      parts.push(`<span style="color:var(--accent2)">Random walk timed out</span> (best: ${(rwState.bestH*100).toFixed(1)}%)`);
+    }
+  }
+  if (cmState) {
+    const h = terrainAt(cmState.x);
+    const isGlobal = h >= globalPeakH * 0.999;
+    const escStr = cmState.escapes === 1 ? '1 escape' : `${cmState.escapes} escapes`;
+    if (isGlobal) {
+      document.getElementById('cmBadge').innerHTML = '<span class="found-badge">✓ GLOBAL PEAK</span>';
+      parts.push(`<span style="color:var(--accent4)">Combined found the global peak</span> (${escStr}, ${cmState.history.length} steps)`);
+    } else {
+      document.getElementById('cmBadge').innerHTML = '<span class="stuck-badge">✗ TIMED OUT</span>';
+      parts.push(`<span style="color:var(--accent4)">Combined timed out</span> (${escStr}, best: ${(h*100).toFixed(1)}%)`);
+    }
+  }
+  setStatus(parts.join(' &nbsp;|&nbsp; '));
+}
+
+function updatePanels() {
+  if (hcState) {
+    const h = terrainAt(hcState.x);
+    document.getElementById('hcPos').textContent    = `x = ${hcState.x}`;
+    document.getElementById('hcHeight').textContent = `${(h * 100).toFixed(1)}%`;
+    document.getElementById('hcSteps').textContent  = hcState.history.length - 1;
+  }
+  if (rwState) {
+    const h = terrainAt(rwState.x);
+    document.getElementById('rwPos').textContent    = `x = ${rwState.x}`;
+    document.getElementById('rwHeight').textContent = `${(h * 100).toFixed(1)}%  (best: ${(rwState.bestH*100).toFixed(1)}%)`;
+    document.getElementById('rwSteps').textContent  = rwState.history.length - 1;
+  }
+  if (cmState) {
+    const h = terrainAt(cmState.x);
+    document.getElementById('cmPos').textContent    = `x = ${cmState.x}`;
+    document.getElementById('cmHeight').textContent = `${(h * 100).toFixed(1)}%`;
+    document.getElementById('cmSteps').textContent  = cmState.history.length - 1;
+    document.getElementById('cmMode').textContent   =
+      cmState.phase === 'rw' ? `↯ escaping (${cmState.escapes})` : `⛰ climbing`;
+  }
+}
+
+function stopAnim() {
+  if (animTimer) clearTimeout(animTimer);
+  animTimer = null;
+  animRunning = false;
+}
+
+function updateButtons(running) {
+  hcBtn.disabled    = running;
+  rwBtn.disabled    = running;
+  cmBtn.disabled    = running;
+  bothBtn.disabled  = running;
+  regenBtn.disabled = running;
+  stopBtn.disabled  = !running;
+}
+
+function setStatus(html) { statusBar.innerHTML = html; }
+
+// ─── Wiring ───────────────────────────────────────────────────────────────────
+subpeakSlider.addEventListener('input', () => {
+  document.getElementById('subpeakVal').textContent = subpeakSlider.value;
+  init();
+});
+rugSlider.addEventListener('input', () => {
+  document.getElementById('rugVal').textContent = rugSlider.value;
+  init();
+});
+regenBtn.addEventListener('click', init);
+hcBtn.addEventListener('click', startHC);
+rwBtn.addEventListener('click', startRW);
+cmBtn.addEventListener('click', startCM);
+bothBtn.addEventListener('click', startBoth);
+stopBtn.addEventListener('click', () => {
+  stopAnim();
+  updateButtons(false);
+  setStatus('Stopped.');
+  draw();
+});
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+resizeCanvas();
+init();
+</script>
+</body>
+</html>

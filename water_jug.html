@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Water Jug Problem</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+:root {
+  --bg: #0d0d0f;
+  --surface: #16161a;
+  --panel: #1e1e24;
+  --border: #2e2e38;
+  --accent: #38b8e0;
+  --accent2: #e05a2b;
+  --accent3: #60b040;
+  --text: #e8e8ec;
+  --muted: #6b6b80;
+  --water: #1a6080;
+  --water-top: #2a9fc8;
+  --shadow: 0 8px 40px rgba(0,0,0,0.6);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(56,184,224,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56,184,224,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 36px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.logo {
+  font-size: 1.3rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.logo span { color: var(--text); }
+
+.move-counter {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.move-counter strong { color: var(--accent); font-size: 1.1rem; }
+
+main {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 20px 10px;
+  gap: 16px;
+}
+
+/* ── Controls ── */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 18px;
+  width: 100%;
+  max-width: 900px;
+}
+
+.control-group {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+input[type=number] {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  width: 52px;
+  text-align: center;
+  outline: none;
+}
+input[type=number]:focus { border-color: var(--accent); }
+input[type=number]::-webkit-inner-spin-button { opacity: 0.4; }
+
+.divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  flex-shrink: 0;
+}
+
+button {
+  font-family: 'Syne', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 7px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+button:hover { border-color: var(--accent); color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #000; }
+button.primary:hover { background: #5fcde8; border-color: #5fcde8; }
+button.danger { border-color: var(--accent2); color: var(--accent2); }
+button.danger:hover { background: var(--accent2); color: #fff; }
+button.success { border-color: var(--accent3); color: var(--accent3); }
+button.success:hover { background: var(--accent3); color: #000; }
+button.countdown-btn { border-color: #c8a020; color: #c8a020; }
+button.countdown-btn:hover { background: #c8a020; color: #000; }
+button:disabled { opacity: 0.38; cursor: not-allowed; }
+
+/* ── Scene ── */
+.scene-wrapper {
+  width: 100%;
+  max-width: 900px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  position: relative;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Status ── */
+.status-bar {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-align: center;
+  min-height: 1.4em;
+  letter-spacing: 0.02em;
+  padding: 0 10px;
+}
+
+/* ── Countdown ── */
+.countdown-display {
+  font-family: 'Space Mono', monospace;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #c8a020;
+  text-align: center;
+  min-height: 2.8rem;
+  letter-spacing: 0.05em;
+  display: none;
+}
+.countdown-display.visible { display: block; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+.countdown-display.urgent { animation: pulse 0.6s infinite; color: var(--accent2); }
+
+/* ── Solution log ── */
+.solution-log {
+  display: none;
+  width: 100%;
+  max-width: 900px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 20px;
+}
+.solution-log.visible { display: block; }
+.solution-log-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent3);
+  margin-bottom: 10px;
+}
+.solution-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.solution-step {
+  font-family: 'Space Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.solution-step .step-num { color: var(--accent3); font-weight: 700; }
+.solution-step .step-text { color: var(--text); }
+
+/* ── Legend ── */
+.legend {
+  display: flex;
+  gap: 20px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.legend span::before { content: '●'; margin-right: 5px; }
+.legend .l-manual::before { color: var(--accent); }
+.legend .l-optimal::before { color: var(--accent3); }
+.legend .l-random::before { color: var(--accent2); }
+.legend .l-countdown::before { color: #c8a020; }
+
+/* ── Win overlay ── */
+@keyframes fadeIn { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
+.win-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.win-overlay.show { display: flex; }
+.win-box {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  padding: 36px 48px;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+  box-shadow: 0 0 60px rgba(56,184,224,0.2);
+}
+.win-box h2 { font-size: 1.8rem; font-weight: 800; color: var(--accent); margin-bottom: 8px; }
+.win-box p { color: var(--muted); font-size: 0.88rem; margin-bottom: 4px; }
+.win-box .win-stats { font-family: 'Space Mono', monospace; font-size: 1rem; color: var(--text); margin: 14px 0; line-height: 1.7; }
+.win-box .win-stats strong { color: var(--accent); }
+
+/* ── Fail overlay ── */
+.fail-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+.fail-overlay.show { display: flex; }
+.fail-box {
+  background: var(--panel);
+  border: 1px solid var(--accent2);
+  border-radius: 20px;
+  padding: 36px 48px;
+  text-align: center;
+  animation: fadeIn 0.3s ease;
+  box-shadow: 0 0 60px rgba(224,90,43,0.2);
+}
+.fail-box h2 { font-size: 1.8rem; font-weight: 800; color: var(--accent2); margin-bottom: 8px; }
+.fail-box p { color: var(--muted); font-size: 0.88rem; margin: 6px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Water Jug <span>Problem</span></div>
+  <div class="move-counter">Moves: <strong id="moveDisplay">0</strong> &nbsp;|&nbsp; Optimal: <strong id="optimalDisplay">—</strong></div>
+</header>
+
+<main>
+  <!-- Config controls -->
+  <div class="controls" id="configControls">
+    <div class="control-group">
+      <label>Tap (L)</label>
+      <input type="number" id="tapInput" value="10" min="3" max="30">
+    </div>
+    <div class="control-group">
+      <label>Jug B (L)</label>
+      <input type="number" id="jugBInput" value="7" min="1" max="20">
+    </div>
+    <div class="control-group">
+      <label>Jug C (L)</label>
+      <input type="number" id="jugCInput" value="4" min="1" max="20">
+    </div>
+    <div class="control-group">
+      <label>Goal (L)</label>
+      <input type="number" id="goalInput" value="6" min="1" max="30">
+    </div>
+    <div class="divider"></div>
+    <button id="resetBtn" class="primary">Reset</button>
+    <div class="divider"></div>
+    <div class="control-group">
+      <label>Speed</label>
+      <input type="range" id="speedSlider" min="1" max="5" value="3" style="-webkit-appearance:none;width:80px;height:4px;background:var(--border);border-radius:2px;outline:none;">
+    </div>
+    <button id="solveBtn" class="success">▶ Solve Optimally</button>
+    <button id="randomBtn" class="danger">🎲 Solve Randomly</button>
+    <button id="countdownBtn" class="countdown-btn">⏱ Countdown</button>
+    <button id="stopBtn" disabled>■ Stop</button>
+  </div>
+
+  <!-- Countdown display -->
+  <div class="countdown-display" id="countdownDisplay">—</div>
+
+  <!-- Canvas -->
+  <div class="scene-wrapper">
+    <canvas id="jugCanvas" height="300"></canvas>
+  </div>
+
+  <div class="status-bar" id="statusBar">Drag a jug to the <strong style="color:var(--accent)">tap</strong> to fill it, to the <strong style="color:var(--accent)">other jug</strong> to pour, or to the <strong style="color:var(--accent2)">drain</strong> to empty it.</div>
+
+  <div class="solution-log" id="solutionLog">
+    <div class="solution-log-title">▶ Optimal Solution</div>
+    <div class="solution-steps" id="solutionSteps"></div>
+  </div>
+
+  <div class="legend">
+    <span class="l-manual">Drag to play</span>
+    <span class="l-optimal">Optimal solver</span>
+    <span class="l-random">Random solver</span>
+    <span class="l-countdown">Countdown</span>
+  </div>
+</main>
+
+<!-- Win overlay -->
+<div class="win-overlay" id="winOverlay">
+  <div class="win-box">
+    <h2>💧 Solved!</h2>
+    <p>You measured the exact goal amount.</p>
+    <div class="win-stats" id="winStats"></div>
+    <button class="primary" onclick="closeWin()" style="margin-top:8px;">Play Again</button>
+  </div>
+</div>
+
+<!-- Fail overlay (countdown expired) -->
+<div class="fail-overlay" id="failOverlay">
+  <div class="fail-box">
+    <h2>⏱ Time's Up!</h2>
+    <p>The countdown reached zero before the goal was reached.</p>
+    <p style="margin-top:10px;color:var(--text)">The optimal solution takes <strong id="failOptimal">—</strong> moves.</p>
+    <div style="margin-top:18px;display:flex;gap:10px;justify-content:center;">
+      <button class="primary" onclick="closeFail(true)">Try Again</button>
+      <button class="success" onclick="closeFail(false)">Show Solution</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let tapCap = 10, jugCap = { B: 7, C: 4 }, goalLitres = 6;
+let water = { B: 0, C: 0 };
+let moves = 0;
+let animQueue = [], animRunning = false, animTimer = null;
+let countdownSecs = 0, countdownTimer = null, countdownRunning = false;
+let pendingMsg = null;
+
+// dragState: { id: 'tap'|'B'|'C', mouseX, mouseY }
+let dragState = null;
+// hoverTarget while dragging: 'tap'|'B'|'C'|'drain'|null
+let hoverTarget = null;
+
+const canvas  = document.getElementById('jugCanvas');
+const ctx     = canvas.getContext('2d');
+const moveDisplay   = document.getElementById('moveDisplay');
+const optimalDisplay = document.getElementById('optimalDisplay');
+const statusBar     = document.getElementById('statusBar');
+const solveBtn      = document.getElementById('solveBtn');
+const randomBtn     = document.getElementById('randomBtn');
+const countdownBtn  = document.getElementById('countdownBtn');
+const stopBtn       = document.getElementById('stopBtn');
+const resetBtn      = document.getElementById('resetBtn');
+const speedSlider   = document.getElementById('speedSlider');
+const cdDisplay     = document.getElementById('countdownDisplay');
+
+// ─── Layout ───────────────────────────────────────────────────────────────────
+function getLayout() {
+  const W = canvas.width, H = canvas.height;
+  const maxCap  = Math.max(jugCap.B, jugCap.C);
+  const baseJugW = Math.min(110, W * 0.16);
+  const baseJugH = Math.min(190, H * 0.58);
+  const minScale = 0.45; // smallest jug is never less than 45% of max
+
+  function jugScale(id) {
+    return minScale + (1 - minScale) * (jugCap[id] / maxCap);
+  }
+
+  const jugW  = { B: baseJugW * jugScale('B'), C: baseJugW * jugScale('C') };
+  const jugH  = { B: baseJugH * jugScale('B'), C: baseJugH * jugScale('C') };
+  // Tap is fixed
+  const tapW  = baseJugW * 0.75;
+  const tapH  = baseJugH * 0.75;
+
+  const baseY = H - 70;
+  const positions = {
+    tap:   W * 0.15,
+    B:     W * 0.38,
+    C:     W * 0.62,
+    drain: W * 0.85,
+  };
+  const drainY = H - 28;
+  const drainW = baseJugW * 1.1;
+  return { W, H, jugW, jugH, tapW, tapH, baseJugW, baseY, positions, drainY, drainW };
+}
+
+// ─── Draw ─────────────────────────────────────────────────────────────────────
+let pourAnim = null;
+
+function draw() {
+  const { W, H, jugW, jugH, tapW, tapH, baseY, positions, drainY, drainW } = getLayout();
+  ctx.clearRect(0, 0, W, H);
+
+  // Ground line
+  ctx.fillStyle = '#2a2a34';
+  ctx.beginPath();
+  ctx.roundRect(W * 0.04, baseY + 4, W * 0.92, 8, 4);
+  ctx.fill();
+
+  // Draw each element (skip dragged jug — draw it as ghost instead)
+  drawTap(positions.tap, baseY, tapW, tapH);
+  if (dragState?.id !== 'B') drawJug('B', positions.B, baseY, jugW.B, jugH.B);
+  if (dragState?.id !== 'C') drawJug('C', positions.C, baseY, jugW.C, jugH.C);
+  drawDrain(positions.drain, drainY, drainW);
+
+  // Hover highlight rings on valid targets
+  if (dragState) drawHoverHighlights();
+
+  // Ghost jug following cursor
+  if (dragState) drawGhostJug();
+
+  // Pour arc animation
+  if (pourAnim) drawPourArc();
+}
+
+function drawHoverHighlights() {
+  const { jugW, jugH, tapW, tapH, baseY, positions, drainY, drainW } = getLayout();
+  const src = dragState.id;
+  const targets = validTargetsFor(src);
+  targets.forEach(t => {
+    const isHover = (t === hoverTarget);
+    const cx = positions[t];
+    ctx.save();
+    ctx.globalAlpha = isHover ? 0.55 : 0.2;
+    ctx.strokeStyle = isHover ? '#ffffff' : '#38b8e0';
+    ctx.lineWidth = isHover ? 3 : 2;
+    ctx.setLineDash([6, 4]);
+    if (t === 'drain') {
+      ctx.beginPath();
+      ctx.roundRect(cx - drainW / 2 - 4, drainY - 28, drainW + 8, 36, 8);
+      ctx.stroke();
+    } else {
+      const w = t === 'tap' ? tapW : jugW[t];
+      const h = t === 'tap' ? tapH : jugH[t];
+      const topW2 = w * 0.85, botW2 = w;
+      const y = baseY - h;
+      ctx.beginPath();
+      ctx.moveTo(cx - topW2/2 - 5, y - 4);
+      ctx.lineTo(cx + topW2/2 + 5, y - 4);
+      ctx.lineTo(cx + botW2/2 + 5, baseY + 4);
+      ctx.lineTo(cx - botW2/2 - 5, baseY + 4);
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.restore();
+  });
+}
+
+function drawGhostJug() {
+  const { jugW, jugH, tapW, tapH } = getLayout();
+  const src = dragState.id;
+  const mx = dragState.mouseX, my = dragState.mouseY;
+  const gW = src === 'tap' ? tapW : jugW[src];
+  const gH = src === 'tap' ? tapH : jugH[src];
+  ctx.save();
+  ctx.globalAlpha = 0.72;
+  const topW = gW * 0.85, botW = gW;
+  const y = my - gH * 0.5;
+  const baseY2 = my + gH * 0.5;
+  const cap = src === 'tap' ? tapCap : jugCap[src];
+  const amt = src === 'tap' ? tapCap : water[src];
+  const fillRatio = amt / cap;
+  const wallT = 4;
+
+  ctx.shadowColor = '#38b8e0';
+  ctx.shadowBlur = 20;
+
+  ctx.fillStyle = '#252530';
+  ctx.beginPath();
+  ctx.moveTo(mx - topW/2, y);
+  ctx.lineTo(mx + topW/2, y);
+  ctx.lineTo(mx + botW/2, baseY2);
+  ctx.lineTo(mx - botW/2, baseY2);
+  ctx.closePath();
+  ctx.fill();
+
+  if (fillRatio > 0) {
+    const waterH = fillRatio * gH;
+    const waterY = baseY2 - waterH;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(mx - topW/2 + wallT, y + wallT);
+    ctx.lineTo(mx + topW/2 - wallT, y + wallT);
+    ctx.lineTo(mx + botW/2 - wallT, baseY2 - wallT);
+    ctx.lineTo(mx - botW/2 + wallT, baseY2 - wallT);
+    ctx.closePath();
+    ctx.clip();
+    ctx.fillStyle = '#1a5070';
+    ctx.fillRect(mx - botW/2, waterY, botW, waterH);
+    const grad = ctx.createLinearGradient(mx - botW/2, waterY, mx + botW/2, waterY);
+    grad.addColorStop(0, 'rgba(56,184,224,0.15)');
+    grad.addColorStop(0.5, 'rgba(56,184,224,0.35)');
+    grad.addColorStop(1, 'rgba(56,184,224,0.1)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(mx - botW/2, waterY, botW, waterH);
+    ctx.restore();
+  }
+  ctx.strokeStyle = '#38b8e0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(mx - topW/2, y);
+  ctx.lineTo(mx + topW/2, y);
+  ctx.lineTo(mx + botW/2, baseY2);
+  ctx.lineTo(mx - botW/2, baseY2);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = `bold ${Math.max(10, gW * 0.14)}px Space Mono, monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(src === 'tap' ? '∞' : `${amt}L`, mx, my);
+  ctx.textBaseline = 'alphabetic';
+  ctx.restore();
+}
+
+function drawTap(cx, baseY, jugW, jugH) {
+  const { W } = getLayout();
+  const y = baseY - jugH;
+
+  // Tap body (pipe shape)
+  ctx.fillStyle = '#3a3a50';
+  ctx.beginPath();
+  ctx.roundRect(cx - 8, y, 16, jugH * 0.55, 4);
+  ctx.fill();
+
+  // Tap spout
+  ctx.fillStyle = '#4a4a60';
+  ctx.beginPath();
+  ctx.roundRect(cx - 20, y + jugH * 0.5, 40, 12, 5);
+  ctx.fill();
+
+  // Tap handle
+  ctx.fillStyle = '#38b8e0';
+  ctx.beginPath();
+  ctx.roundRect(cx + 10, y + jugH * 0.35, 18, 8, 3);
+  ctx.fill();
+
+  // Drip
+  ctx.fillStyle = 'rgba(56,184,224,0.7)';
+  ctx.beginPath();
+  ctx.arc(cx, y + jugH * 0.65, 4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Label
+  ctx.fillStyle = '#6b6b80';
+  ctx.font = `bold ${Math.max(11, W * 0.013)}px Syne, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('TAP', cx, baseY + 22);
+  ctx.fillStyle = 'rgba(56,184,224,0.6)';
+  ctx.font = `bold ${Math.max(10, W * 0.012)}px Space Mono, monospace`;
+  ctx.fillText('∞ L', cx, baseY + 36);
+}
+
+function drawJug(id, cx, baseY, jugW, jugH) {
+  const { W } = getLayout();
+  const cap = jugCap[id];
+  const amt = water[id];
+  const fillRatio = cap > 0 ? amt / cap : 0;
+  const x = cx - jugW / 2;
+  const y = baseY - jugH;
+  const wallT = 5;
+
+  // Jug outer silhouette (trapezoid-ish with slight taper)
+  const topW = jugW * 0.85;
+  const botW = jugW;
+  ctx.fillStyle = '#252530';
+  ctx.beginPath();
+  ctx.moveTo(cx - topW / 2, y);
+  ctx.lineTo(cx + topW / 2, y);
+  ctx.lineTo(cx + botW / 2, baseY);
+  ctx.lineTo(cx - botW / 2, baseY);
+  ctx.closePath();
+  ctx.fill();
+
+  // Water fill
+  if (fillRatio > 0) {
+    const waterH = fillRatio * jugH;
+    const waterY = baseY - waterH;
+    // Clip to jug shape
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(cx - topW / 2 + wallT, y + wallT);
+    ctx.lineTo(cx + topW / 2 - wallT, y + wallT);
+    ctx.lineTo(cx + botW / 2 - wallT, baseY - wallT);
+    ctx.lineTo(cx - botW / 2 + wallT, baseY - wallT);
+    ctx.closePath();
+    ctx.clip();
+
+    // Base water colour
+    ctx.fillStyle = '#1a5070';
+    ctx.fillRect(cx - botW / 2, waterY, botW, waterH);
+
+    // Water shimmer gradient
+    const grad = ctx.createLinearGradient(cx - botW/2, waterY, cx + botW/2, waterY);
+    grad.addColorStop(0, 'rgba(56,184,224,0.12)');
+    grad.addColorStop(0.4, 'rgba(56,184,224,0.28)');
+    grad.addColorStop(1, 'rgba(56,184,224,0.08)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx - botW / 2, waterY, botW, waterH);
+
+    // Surface highlight
+    ctx.fillStyle = 'rgba(100,220,255,0.18)';
+    ctx.fillRect(cx - botW / 2, waterY, botW, 5);
+
+    ctx.restore();
+  }
+
+  // Jug outline
+  const isGoal = (amt === goalLitres && amt > 0);
+  ctx.strokeStyle = isGoal ? '#38e890' : '#3a3a55';
+  ctx.lineWidth = isGoal ? 2.5 : 1.5;
+  ctx.beginPath();
+  ctx.moveTo(cx - topW / 2, y);
+  ctx.lineTo(cx + topW / 2, y);
+  ctx.lineTo(cx + botW / 2, baseY);
+  ctx.lineTo(cx - botW / 2, baseY);
+  ctx.closePath();
+  ctx.stroke();
+  ctx.lineWidth = 1;
+
+  // Goal highlight glow
+  if (isGoal) {
+    ctx.save();
+    ctx.shadowColor = '#38e890';
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = '#38e890';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(cx - topW / 2, y);
+    ctx.lineTo(cx + topW / 2, y);
+    ctx.lineTo(cx + botW / 2, baseY);
+    ctx.lineTo(cx - botW / 2, baseY);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Capacity tick marks
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < cap; i++) {
+    const ty = baseY - (i / cap) * jugH;
+    ctx.beginPath();
+    ctx.moveTo(cx - botW / 2 + wallT + 2, ty);
+    ctx.lineTo(cx - botW / 2 + wallT + (i % 5 === 0 ? 12 : 7), ty);
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
+
+  // Labels
+  ctx.textAlign = 'center';
+  ctx.fillStyle = isGoal ? '#38e890' : '#6b6b80';
+  ctx.font = `bold ${Math.max(11, W * 0.013)}px Syne, sans-serif`;
+  ctx.fillText(`JUG ${id}`, cx, baseY + 22);
+
+  ctx.fillStyle = isGoal ? '#38e890' : 'rgba(56,184,224,0.75)';
+  ctx.font = `bold ${Math.max(10, W * 0.013)}px Space Mono, monospace`;
+  ctx.fillText(`${amt} / ${cap} L`, cx, baseY + 36);
+
+  // Amount text inside jug
+  if (amt > 0) {
+    const waterH = fillRatio * jugH;
+    const labelY = baseY - waterH / 2;
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = `bold ${Math.max(13, jugW * 0.22)}px Space Mono, monospace`;
+    ctx.fillText(amt, cx, labelY + 5);
+  }
+}
+
+function drawDrain(cx, drainY, drainW) {
+  const isHovered = (hoverTarget === 'drain' && dragState);
+  const col = isHovered ? '#e05a2b' : '#3a3a50';
+  const textCol = isHovered ? '#e05a2b' : '#6b6b80';
+
+  // Drain grate
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.roundRect(cx - drainW / 2, drainY - 22, drainW, 14, 4);
+  ctx.fill();
+
+  // Grate lines
+  ctx.strokeStyle = isHovered ? '#ff8060' : '#252530';
+  ctx.lineWidth = 2;
+  const slots = 5;
+  for (let i = 0; i < slots; i++) {
+    const sx = cx - drainW / 2 + 4 + i * ((drainW - 8) / (slots - 1));
+    ctx.beginPath();
+    ctx.moveTo(sx, drainY - 21);
+    ctx.lineTo(sx, drainY - 10);
+    ctx.stroke();
+  }
+  ctx.lineWidth = 1;
+
+  // Drain label
+  ctx.fillStyle = textCol;
+  ctx.font = `bold 11px Syne, sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText('DRAIN', cx, drainY + 2);
+
+  if (isHovered) {
+    ctx.save();
+    ctx.shadowColor = '#e05a2b';
+    ctx.shadowBlur = 14;
+    ctx.strokeStyle = '#e05a2b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(cx - drainW / 2 - 2, drainY - 24, drainW + 4, 18, 5);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawPourArc() {
+  if (!pourAnim) return;
+  const { jugH, baseY } = getLayout();
+  const fromX = pourAnim.fromX;
+  const toX   = pourAnim.toX;
+  const p = pourAnim.progress;
+
+  const t = p;
+  const midX = (fromX + toX) / 2;
+  const midY = baseY - jugH * 1.1;
+  const bx = fromX*(1-t)*(1-t) + midX*2*t*(1-t) + toX*t*t;
+  const by = (baseY - jugH*0.7)*(1-t)*(1-t) + midY*2*t*(1-t) + (baseY - jugH*0.15)*t*t;
+
+  ctx.save();
+  ctx.globalAlpha = 0.35 * (1 - p * 0.5);
+  ctx.strokeStyle = '#38b8e0';
+  ctx.lineWidth = 3;
+  ctx.setLineDash([6, 5]);
+  ctx.beginPath();
+  ctx.moveTo(fromX, baseY - jugH * 0.7);
+  ctx.quadraticCurveTo(midX, midY, toX, baseY - jugH * 0.15);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.85;
+  ctx.fillStyle = '#38b8e0';
+  ctx.shadowColor = '#38b8e0';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.arc(bx, by, 7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// ─── Resize ───────────────────────────────────────────────────────────────────
+function resizeCanvas() {
+  const wrapper = canvas.parentElement;
+  canvas.width = wrapper.clientWidth;
+  canvas.height = Math.max(280, Math.min(380, wrapper.clientWidth * 0.42));
+  draw();
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+function readConfig() {
+  tapCap    = Math.max(3, parseInt(document.getElementById('tapInput').value) || 10);
+  jugCap.B  = Math.max(1, parseInt(document.getElementById('jugBInput').value) || 7);
+  jugCap.C  = Math.max(1, parseInt(document.getElementById('jugCInput').value) || 4);
+  goalLitres = Math.max(1, parseInt(document.getElementById('goalInput').value) || 6);
+  // Clamp goal to tap capacity
+  if (goalLitres > tapCap) { goalLitres = tapCap; document.getElementById('goalInput').value = tapCap; }
+}
+
+function initGame() {
+  stopAll();
+  hideSolutionLog();
+  readConfig();
+  water = { B: 0, C: 0 };
+  moves = 0;
+  moveDisplay.textContent = 0;
+  pourAnim = null;
+  const opt = bfsSolve();
+  optimalDisplay.textContent = opt ? opt.length : '✗';
+  setStatus(opt
+    ? `Goal: measure exactly <strong style="color:var(--accent)">${goalLitres}L</strong>. Optimal: <strong style="color:var(--accent3)">${opt.length}</strong> moves. Drag jugs to play.`
+    : `<span style="color:var(--accent2)">⚠ No solution exists for goal ${goalLitres}L with these jug sizes.</span>`
+  );
+  draw();
+  updateButtons(false);
+  cdDisplay.classList.remove('visible','urgent');
+  cdDisplay.textContent = '—';
+}
+
+// ─── Drag interaction ─────────────────────────────────────────────────────────
+
+function hitTarget(x, y) {
+  const { jugW, jugH, tapW, tapH, baseY, positions, drainY, drainW } = getLayout();
+  const tw = tapW, th = tapH;
+  if (x >= positions.tap - tw/2 - 8 && x <= positions.tap + tw/2 + 8 &&
+      y >= baseY - th - 8 && y <= baseY + 8) return 'tap';
+  for (const id of ['B', 'C']) {
+    const w = jugW[id], h = jugH[id];
+    if (x >= positions[id] - w/2 - 8 && x <= positions[id] + w/2 + 8 &&
+        y >= baseY - h - 8 && y <= baseY + 8) return id;
+  }
+  if (x >= positions.drain - drainW/2 - 8 && x <= positions.drain + drainW/2 + 8 &&
+      y >= drainY - 30 && y <= drainY + 8) return 'drain';
+  return null;
+}
+
+// Drag rules:
+//   tap  → NOT draggable (it's a drop target only)
+//   B    → tap (fill B from tap), C (pour B→C), drain (empty B)
+//   C    → tap (fill C from tap), B (pour C→B), drain (empty C)
+function validTargetsFor(src) {
+  if (src === 'B') return ['tap', 'C', 'drain'];
+  if (src === 'C') return ['tap', 'B', 'drain'];
+  return [];
+}
+
+function canvasXY(e) {
+  const rect = canvas.getBoundingClientRect();
+  const t = e.touches ? e.touches[0] : e;
+  return {
+    x: (t.clientX - rect.left) * (canvas.width  / rect.width),
+    y: (t.clientY - rect.top)  * (canvas.height / rect.height),
+  };
+}
+
+function startDrag(e) {
+  if (animRunning && !countdownRunning) return;
+  const { x, y } = canvasXY(e);
+  const hit = hitTarget(x, y);
+  // Only jugs B and C are draggable
+  if (hit !== 'B' && hit !== 'C') return;
+  dragState = { id: hit, mouseX: x, mouseY: y };
+  hoverTarget = null;
+  canvas.style.cursor = 'grabbing';
+  draw();
+}
+
+function moveDrag(e) {
+  if (!dragState) {
+    if (!animRunning || countdownRunning) {
+      const { x, y } = canvasXY(e);
+      const hit = hitTarget(x, y);
+      canvas.style.cursor = (hit === 'B' || hit === 'C') ? 'grab' : 'default';
+    }
+    return;
+  }
+  if (e.cancelable) e.preventDefault();
+  const { x, y } = canvasXY(e);
+  dragState.mouseX = x;
+  dragState.mouseY = y;
+  hoverTarget = hitTarget(x, y);
+  if (hoverTarget && !validTargetsFor(dragState.id).includes(hoverTarget)) {
+    hoverTarget = null;
+  }
+  draw();
+}
+
+function endDrag(e) {
+  if (!dragState) return;
+  const src = dragState.id;
+  const tgt = hoverTarget;
+  dragState = null;
+  hoverTarget = null;
+  canvas.style.cursor = 'default';
+  draw();
+
+  if (!tgt || !validTargetsFor(src).includes(tgt)) return;
+
+  if (tgt === 'tap') {
+    doFill(src);
+  } else if (tgt === 'drain') {
+    doDrain(src);
+  } else {
+    doPour(src, tgt);
+  }
+}
+
+// Attach start to canvas; move/end to window so dragging outside canvas still works
+canvas.addEventListener('mousedown', startDrag);
+window.addEventListener('mousemove', moveDrag);
+window.addEventListener('mouseup',   endDrag);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); startDrag(e); }, { passive: false });
+canvas.addEventListener('touchmove',  e => { e.preventDefault(); moveDrag(e); },  { passive: false });
+canvas.addEventListener('touchend',   e => { e.preventDefault(); endDrag(e); },   { passive: false });
+
+// ─── Move logic ───────────────────────────────────────────────────────────────
+function applyMove(move, w) {
+  const s = { B: w.B, C: w.C };
+  if (move.type === 'fill') {
+    s[move.to] = jugCap[move.to];
+  } else if (move.type === 'pour') {
+    const space = jugCap[move.to] - s[move.to];
+    const amt = Math.min(s[move.from], space);
+    s[move.from] -= amt;
+    s[move.to]   += amt;
+  } else if (move.type === 'drain') {
+    s[move.from] = 0;
+  }
+  return s;
+}
+
+function doFill(to) {
+  if (water[to] === jugCap[to]) { setStatus(`Jug ${to} is already full.`); draw(); return; }
+  water[to] = jugCap[to];
+  finishManualMove({ type: 'fill', to }, positions_x('tap'), positions_x(to));
+}
+
+function doPour(from, to) {
+  if (water[from] === 0) { setStatus(`Jug ${from} is empty — nothing to pour.`); draw(); return; }
+  const space = jugCap[to] - water[to];
+  const amt = Math.min(water[from], space);
+  if (amt === 0) { setStatus(`Jug ${to} is already full.`); draw(); return; }
+  water[from] -= amt;
+  water[to]   += amt;
+  finishManualMove({ type: 'pour', from, to }, positions_x(from), positions_x(to));
+}
+
+function doDrain(from) {
+  if (water[from] === 0) { setStatus(`Jug ${from} is already empty.`); draw(); return; }
+  water[from] = 0;
+  finishManualMove({ type: 'drain', from }, positions_x(from), positions_x('drain'));
+}
+
+function positions_x(id) {
+  return getLayout().positions[id];
+}
+
+function finishManualMove(move, fx, tx) {
+  moves++;
+  moveDisplay.textContent = moves;
+  setStatus(describeMove(move));
+  triggerPourAnim(fx, tx, () => { draw(); checkWin(); });
+}
+
+function isGoalState(w) {
+  return w.B === goalLitres || w.C === goalLitres;
+}
+
+function stateKey(w) { return `${w.B},${w.C}`; }
+
+function allMoves() {
+  return [
+    { type: 'fill', to: 'B' },
+    { type: 'fill', to: 'C' },
+    { type: 'pour', from: 'B', to: 'C' },
+    { type: 'pour', from: 'C', to: 'B' },
+    { type: 'drain', from: 'B' },
+    { type: 'drain', from: 'C' },
+  ];
+}
+
+function describeMove(m) {
+  if (m.type === 'fill')  return `Filled Jug ${m.to} from tap → <strong style="color:var(--accent)">${water[m.to]}L</strong>`;
+  if (m.type === 'pour')  return `Poured Jug ${m.from} → Jug ${m.to} &nbsp;|&nbsp; B: <strong style="color:var(--accent)">${water.B}L</strong>, C: <strong style="color:var(--accent)">${water.C}L</strong>`;
+  if (m.type === 'drain') return `Drained Jug ${m.from}`;
+  return '';
+}
+
+function triggerPourAnim(fromX, toX, cb) {
+  pourAnim = { fromX, toX, progress: 0 };
+  let start = null;
+  const dur = Math.min(280, getDelay() * 0.7);
+  function step(ts) {
+    if (!start) start = ts;
+    pourAnim.progress = Math.min(1, (ts - start) / dur);
+    draw();
+    if (pourAnim.progress < 1) requestAnimationFrame(step);
+    else { pourAnim = null; draw(); if (cb) cb(); }
+  }
+  requestAnimationFrame(step);
+}
+
+function checkWin() {
+  if (isGoalState(water)) {
+    stopAll();
+    const opt = bfsSolve();
+    document.getElementById('winStats').innerHTML =
+      `Moves taken: <strong>${moves}</strong><br>Optimal: <strong>${opt ? opt.length : '?'}</strong>`;
+    document.getElementById('winOverlay').classList.add('show');
+  }
+}
+
+function closeWin() {
+  document.getElementById('winOverlay').classList.remove('show');
+  initGame();
+}
+
+// ─── BFS Solver ───────────────────────────────────────────────────────────────
+function bfsSolve(startW) {
+  const start = startW || { B: water.B, C: water.C };
+  if (isGoalState(start)) return [];
+  const queue = [{ w: start, path: [] }];
+  const visited = new Set([stateKey(start)]);
+  while (queue.length) {
+    const { w, path } = queue.shift();
+    for (const mv of allMoves()) {
+      const next = applyMove(mv, w);
+      const key = stateKey(next);
+      if (visited.has(key)) continue;
+      visited.add(key);
+      const newPath = [...path, mv];
+      if (isGoalState(next)) return newPath;
+      queue.push({ w: next, path: newPath });
+    }
+  }
+  return null; // no solution
+}
+
+// ─── Random solver ────────────────────────────────────────────────────────────
+function buildRandomSolution() {
+  const tempW = { B: water.B, C: water.C };
+  const list = [];
+  const visited = new Set([stateKey(tempW)]);
+  let lastKey = null;
+  const maxSteps = 3000;
+  while (!isGoalState(tempW) && list.length < maxSteps) {
+    const legal = allMoves().filter(mv => {
+      const next = applyMove(mv, tempW);
+      return stateKey(next) !== stateKey(tempW); // move must change state
+    });
+    if (legal.length === 0) break;
+    const mv = legal[Math.floor(Math.random() * legal.length)];
+    const next = applyMove(mv, tempW);
+    tempW.B = next.B; tempW.C = next.C;
+    list.push(mv);
+  }
+  return list;
+}
+
+// ─── Animation engine ─────────────────────────────────────────────────────────
+function getDelay() {
+  return [700, 420, 220, 100, 30][parseInt(speedSlider.value) - 1];
+}
+
+let onCompleteCallback = null;
+
+function runAnimation(moveList, type, msg, onComplete) {
+  stopAll();
+  animQueue = [...moveList];
+  animRunning = true;
+  pendingMsg = msg || null;
+  onCompleteCallback = onComplete || null;
+  updateButtons(true);
+  const col   = type === 'optimal' ? 'var(--accent3)' : 'var(--accent2)';
+  const label = type === 'optimal' ? '▶ Optimal solver running…' : '🎲 Random solver running…';
+  setStatus(`<span style="color:${col}">${label}</span> ${animQueue.length} move${animQueue.length!==1?'s':''} queued.`);
+  stepAnim();
+}
+
+function stepAnim() {
+  if (!animRunning || animQueue.length === 0) {
+    animRunning = false;
+    updateButtons(false);
+    if (isGoalState(water)) {
+      checkWin();
+    } else if (pendingMsg) {
+      setStatus(pendingMsg); pendingMsg = null;
+    } else {
+      setStatus('Solver finished.');
+    }
+    if (onCompleteCallback) { onCompleteCallback(); onCompleteCallback = null; }
+    return;
+  }
+  const mv = animQueue.shift();
+  const newW = applyMove(mv, water);
+  water.B = newW.B; water.C = newW.C;
+  moves++;
+  moveDisplay.textContent = moves;
+  const pos = getLayout().positions;
+  const fx = mv.type === 'fill'  ? pos.tap
+           : mv.type === 'pour'  ? pos[mv.from]
+           :                       pos[mv.from];
+  const tx = mv.type === 'pour'  ? pos[mv.to]
+           : mv.type === 'fill'  ? pos[mv.to]
+           :                       pos.drain;
+  triggerPourAnim(fx, tx, () => {
+    draw();
+    if (isGoalState(water)) {
+      animRunning = false; animQueue = [];
+      updateButtons(false);
+      if (onCompleteCallback) { onCompleteCallback(); onCompleteCallback = null; }
+      checkWin();
+      return;
+    }
+    animTimer = setTimeout(stepAnim, getDelay());
+  });
+}
+
+// ─── Countdown mode ───────────────────────────────────────────────────────────
+function startCountdown() {
+  const opt = bfsSolve();
+  if (!opt) { setStatus('<span style="color:var(--accent2)">No solution exists — countdown unavailable.</span>'); return; }
+  stopAll();
+  // Give 3× optimal moves as seconds
+  countdownSecs = opt.length * 3;
+  countdownRunning = true;
+  cdDisplay.classList.add('visible');
+  cdDisplay.classList.remove('urgent');
+  updateButtons(true);
+  setStatus(`⏱ Countdown started! You have <strong style="color:#c8a020">${countdownSecs}s</strong> to solve it. Optimal is ${opt.length} moves.`);
+  tickCountdown();
+}
+
+function tickCountdown() {
+  if (!countdownRunning) return;
+  const urgent = countdownSecs <= 5;
+  cdDisplay.textContent = countdownSecs + 's';
+  cdDisplay.classList.toggle('urgent', urgent);
+  if (countdownSecs <= 0) {
+    countdownRunning = false;
+    cdDisplay.classList.remove('visible','urgent');
+    const opt = bfsSolve();
+    document.getElementById('failOptimal').textContent = opt ? opt.length : '?';
+    document.getElementById('failOverlay').classList.add('show');
+    updateButtons(false);
+    return;
+  }
+  countdownSecs--;
+  countdownTimer = setTimeout(tickCountdown, 1000);
+}
+
+function closeFail(tryAgain) {
+  document.getElementById('failOverlay').classList.remove('show');
+  if (tryAgain) {
+    initGame();
+    startCountdown();
+  } else {
+    const opt = bfsSolve({ B: 0, C: 0 });
+    water = { B: 0, C: 0 }; moves = 0; moveDisplay.textContent = 0;
+    if (opt) {
+      runAnimation(opt, 'optimal', null, () => renderSolutionLog(opt));
+    } else {
+      setStatus('No solution to show.');
+    }
+  }
+}
+
+// ─── Stop everything ──────────────────────────────────────────────────────────
+function stopAll() {
+  if (animTimer) clearTimeout(animTimer);
+  animTimer = null;
+  animRunning = false;
+  animQueue = [];
+  if (countdownTimer) clearTimeout(countdownTimer);
+  countdownTimer = null;
+  countdownRunning = false;
+  countdownSecs = 0;
+  cdDisplay.classList.remove('visible','urgent');
+  cdDisplay.textContent = '—';
+  pourAnim = null;
+  onCompleteCallback = null;
+}
+
+function updateButtons(running) {
+  solveBtn.disabled      = running;
+  randomBtn.disabled     = running;
+  countdownBtn.disabled  = running;
+  stopBtn.disabled       = !running;
+  resetBtn.disabled      = running;
+}
+
+function setStatus(html) { statusBar.innerHTML = html; }
+
+// ─── Solution log ─────────────────────────────────────────────────────────────
+function moveToText(m) {
+  if (m.type === 'fill')  return `Fill Jug ${m.to} from tap`;
+  if (m.type === 'pour')  return `Pour Jug ${m.from} → Jug ${m.to}`;
+  if (m.type === 'drain') return `Drain Jug ${m.from}`;
+  return '?';
+}
+
+function renderSolutionLog(steps) {
+  const log = document.getElementById('solutionLog');
+  const container = document.getElementById('solutionSteps');
+  container.innerHTML = steps.map((mv, i) =>
+    `<span class="solution-step"><span class="step-num">Step ${i+1}:</span> <span class="step-text">${moveToText(mv)}</span></span>`
+  ).join('');
+  log.classList.add('visible');
+}
+
+function hideSolutionLog() {
+  document.getElementById('solutionLog').classList.remove('visible');
+}
+
+// ─── Wiring ───────────────────────────────────────────────────────────────────
+resetBtn.addEventListener('click', () => { hideSolutionLog(); initGame(); });
+
+solveBtn.addEventListener('click', () => {
+  const opt = bfsSolve();
+  if (!opt) { setStatus('<span style="color:var(--accent2)">No solution exists with these settings.</span>'); return; }
+  hideSolutionLog();
+  // After animation completes, show the log
+  const onDone = () => renderSolutionLog(opt);
+  runAnimation(opt, 'optimal', null, onDone);
+});
+
+randomBtn.addEventListener('click', () => {
+  hideSolutionLog();
+  runAnimation(buildRandomSolution(), 'random');
+});
+
+countdownBtn.addEventListener('click', () => { hideSolutionLog(); startCountdown(); });
+
+stopBtn.addEventListener('click', () => {
+  stopAll();
+  setStatus('Stopped.');
+  draw();
+  updateButtons(false);
+});
+
+['tapInput','jugBInput','jugCInput','goalInput'].forEach(id => {
+  document.getElementById(id).addEventListener('change', initGame);
+});
+
+// Speed slider styling
+const sSlider = document.getElementById('speedSlider');
+sSlider.style.cssText += ';-webkit-appearance:none;width:80px;height:4px;background:var(--border);border-radius:2px;outline:none;';
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+resizeCanvas();
+initGame();
+</script>
+</body>
+</html>
